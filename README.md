@@ -51,7 +51,9 @@ cd OrderDeliverySystem.API
 dotnet restore
 
 # Apply migrations & create database
-dotnet ef database update -p OrderDeliverySystem.Infrastructure -s OrderDeliverySystem.API
+dotnet ef migrations add InitialCreate -p src/OrderDeliverySystem.Infrastructure -s src/OrderDeliverySystem.API
+dotnet ef database update -p src/OrderDeliverySystem.Infrastructure -s src/OrderDeliverySystem.API
+
 
 # Run the application
 cd OrderDeliverySystem.API
