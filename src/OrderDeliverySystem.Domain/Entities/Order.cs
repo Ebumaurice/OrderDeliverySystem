@@ -14,5 +14,7 @@ public class Order
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public Guid? AssignedAgentId { get; set; }
+    public Guid? DeliveryAgentId { get; set; }
+
+    public DeliveryAgent? DeliveryAgent { get; set; }
 }
