@@ -2,7 +2,6 @@
 using OrderDeliverySystem.Application.DTOs.Orders;
 using OrderDeliverySystem.Application.Interfaces;
 using OrderDeliverySystem.Domain.Entities;
-using OrderDeliverySystem.Infrastructure.Persistence;
 
 namespace OrderDeliverySystem.Application.Services;
 
@@ -45,6 +44,10 @@ public class OrderService : IOrderService
     public async Task<PagedResponse<OrderResponse>> GetOrdersAsync(
         OrderStatus? status, int page, int pageSize)
     {
+        // Fix pagination
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 10 : (pageSize > 50 ? 50 : pageSize);
+
         var query = _context.Orders
             .Include(o => o.DeliveryAgent)
             .AsQueryable();
@@ -69,7 +72,8 @@ public class OrderService : IOrderService
         };
     }
 
-    public async Task<OrderResponse> UpdateOrderStatusAsync(Guid id, UpdateOrderStatusRequest request)
+    public async Task<OrderResponse> UpdateOrderStatusAsync(
+        Guid id, UpdateOrderStatusRequest request)
     {
         var order = await _context.Orders
             .Include(o => o.DeliveryAgent)
@@ -79,6 +83,7 @@ public class OrderService : IOrderService
         ValidateStatusTransition(order.Status, request.Status);
 
         order.Status = request.Status;
+
         await _context.SaveChangesAsync();
 
         return MapToResponse(order);
@@ -91,19 +96,30 @@ public class OrderService : IOrderService
             .FirstOrDefaultAsync(o => o.OrderId == orderId)
             ?? throw new KeyNotFoundException($"Order {orderId} not found.");
 
+        // Block invalid states
         if (order.Status == OrderStatus.Delivered || order.Status == OrderStatus.Cancelled)
+        {
             throw new InvalidOperationException(
-                $"Cannot assign agent to an order with status '{order.Status}'.");
+                $"Cannot assign agent to order in '{order.Status}' state.");
+        }
+
+        if (order.DeliveryAgentId == agentId)
+        {
+            throw new InvalidOperationException(
+                "Order is already assigned to this agent.");
+        }
 
         var agent = await _context.DeliveryAgents
             .FirstOrDefaultAsync(a => a.DeliveryAgentId == agentId)
             ?? throw new KeyNotFoundException($"Agent {agentId} not found.");
 
         if (!agent.IsActive)
+        {
             throw new InvalidOperationException(
-                $"Agent '{agent.Name}' is not active and cannot be assigned.");
+                $"Agent '{agent.Name}' is not active.");
+        }
 
-        // Prevent agent from having multiple active orders simultaneously
+        // Prevent multiple active orders
         var hasActiveOrder = await _context.Orders.AnyAsync(o =>
             o.DeliveryAgentId == agentId &&
             o.Status != OrderStatus.Delivered &&
@@ -111,35 +127,53 @@ public class OrderService : IOrderService
             o.OrderId != orderId);
 
         if (hasActiveOrder)
+        {
             throw new InvalidOperationException(
-                $"Agent '{agent.Name}' already has an active order assignment.");
+                $"Agent '{agent.Name}' already has an active order.");
+        }
+
+        // Reassignment rule
+        if (order.DeliveryAgentId != null && order.DeliveryAgentId != agentId)
+        {
+            if (order.Status != OrderStatus.Assigned)
+            {
+                throw new InvalidOperationException(
+                    "Reassignment is only allowed when order is in Assigned state.");
+            }
+        }
 
         order.DeliveryAgentId = agentId;
-        order.Status = OrderStatus.Assigned;
+
+        if (order.Status == OrderStatus.Created)
+        {
+            order.Status = OrderStatus.Assigned;
+        }
+
         await _context.SaveChangesAsync();
 
         order.DeliveryAgent = agent;
+
         return MapToResponse(order);
     }
 
-    // ─── Status transition enforcement ──────────────────────────────────────
     private static void ValidateStatusTransition(OrderStatus current, OrderStatus next)
     {
         var allowed = new Dictionary<OrderStatus, IEnumerable<OrderStatus>>
         {
-            [OrderStatus.Created] = [OrderStatus.Assigned, OrderStatus.Cancelled],
-            [OrderStatus.Assigned] = [OrderStatus.InTransit, OrderStatus.Cancelled],
-            [OrderStatus.InTransit] = [OrderStatus.Delivered],
-            [OrderStatus.Delivered] = [],
-            [OrderStatus.Cancelled] = []
+            [OrderStatus.Created] = new[] { OrderStatus.Assigned, OrderStatus.Cancelled },
+            [OrderStatus.Assigned] = new[] { OrderStatus.InTransit, OrderStatus.Cancelled },
+            [OrderStatus.InTransit] = new[] { OrderStatus.Delivered },
+            [OrderStatus.Delivered] = Array.Empty<OrderStatus>(),
+            [OrderStatus.Cancelled] = Array.Empty<OrderStatus>()
         };
 
         if (!allowed[current].Contains(next))
+        {
             throw new InvalidOperationException(
                 $"Invalid status transition from '{current}' to '{next}'.");
+        }
     }
 
-    // ─── Mapping ─────────────────────────────────────────────────────────────
     private static OrderResponse MapToResponse(Order order) => new()
     {
         OrderId = order.OrderId,
