@@ -44,7 +44,7 @@ public class OrderService : IOrderService
     public async Task<PagedResponse<OrderResponse>> GetOrdersAsync(
         OrderStatus? status, int page, int pageSize)
     {
-        // Fix pagination
+        // pagination
         page = page < 1 ? 1 : page;
         pageSize = pageSize < 1 ? 10 : (pageSize > 50 ? 50 : pageSize);
 
