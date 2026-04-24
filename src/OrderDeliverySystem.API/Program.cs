@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
 using OrderDeliverySystem.Api.Authentication;
 using OrderDeliverySystem.API.Middleware;
@@ -22,33 +21,41 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    var securityScheme = new OpenApiSecurityScheme
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
         Name = "X-Api-Key",
         Type = SecuritySchemeType.ApiKey,
         In = ParameterLocation.Header,
         Description = "Enter your API Key",
-        Reference = new OpenApiReference
-        {
-            Type = ReferenceType.SecurityScheme,
-            Id = "ApiKey"
-        }
-    };
-
-    options.AddSecurityDefinition("ApiKey", securityScheme);
-
+        Scheme = "ApiKey"
+    });
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            securityScheme,
-            new List<string>()
+            new OpenApiSecurityScheme
+            {
+                Name = "ApiKey",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.ApiKey,
+                Scheme = "ApiKey"
+            },
+            Array.Empty<string>()
         }
     });
 });
-// Infrastructure
+
+// Infrastructure — use InMemory for Testing environment, SQL Server otherwise
+var isTestingEnvironment = builder.Environment.EnvironmentName == "Testing";
+
 builder.Services.AddDbContext<OrderDeliveryContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (isTestingEnvironment)
+        options.UseInMemoryDatabase("TestDb");
+    else
+        options.UseSqlServer(
+            builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+
 builder.Services.AddScoped<IOrderDeliveryContext>(provider =>
     provider.GetRequiredService<OrderDeliveryContext>());
 
@@ -64,7 +71,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || isTestingEnvironment)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -76,3 +83,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
+
+public partial class Program { }
