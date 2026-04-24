@@ -19,7 +19,6 @@ public class OrderServiceTests
     // ─── Status Transition Tests ─────────────────────────────────────────────
 
     [Theory]
-    [InlineData(OrderStatus.Created, OrderStatus.Assigned)]
     [InlineData(OrderStatus.Created, OrderStatus.Cancelled)]
     [InlineData(OrderStatus.Assigned, OrderStatus.InTransit)]
     [InlineData(OrderStatus.Assigned, OrderStatus.Cancelled)]
@@ -64,6 +63,8 @@ public class OrderServiceTests
     }
 
     [Theory]
+    [InlineData(OrderStatus.Created, OrderStatus.Assigned)]
+    [InlineData(OrderStatus.Created, OrderStatus.InTransit)]
     [InlineData(OrderStatus.Delivered, OrderStatus.Assigned)]
     [InlineData(OrderStatus.Cancelled, OrderStatus.InTransit)]
     [InlineData(OrderStatus.InTransit, OrderStatus.Created)]
@@ -107,6 +108,34 @@ public class OrderServiceTests
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.UpdateOrderStatusAsync(
                 Guid.NewGuid(),
+                new UpdateOrderStatusRequest { Status = OrderStatus.Assigned }));
+    }
+
+    // New test — setting Assigned via status update is blocked
+    [Fact]
+    public async Task UpdateOrderStatus_SetAssignedWithoutAgent_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var context = CreateInMemoryContext();
+        var order = new Order
+        {
+            OrderId = Guid.NewGuid(),
+            CustomerName = "John Doe",
+            PickupLocation = "Lagos",
+            DropoffLocation = "Abuja",
+            Status = OrderStatus.Created,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+
+        var service = new OrderService(context);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UpdateOrderStatusAsync(
+                order.OrderId,
                 new UpdateOrderStatusRequest { Status = OrderStatus.Assigned }));
     }
 

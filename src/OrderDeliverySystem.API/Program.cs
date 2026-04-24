@@ -42,22 +42,23 @@ try
             Name = "X-Api-Key",
             Type = SecuritySchemeType.ApiKey,
             In = ParameterLocation.Header,
-            Description = "Enter your API Key",
-            Scheme = "ApiKey"
+            Description = "Enter your API Key"
         });
+
         options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
         {
+            new OpenApiSecurityScheme
             {
-                new OpenApiSecurityScheme
+                Reference = new OpenApiReference
                 {
-                    Name = "ApiKey",
-                    In = ParameterLocation.Header,
-                    Type = SecuritySchemeType.ApiKey,
-                    Scheme = "ApiKey"
-                },
-                Array.Empty<string>()
-            }
-        });
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "ApiKey"
+                }
+            },
+            new List<string>()
+        }
+    });
     });
 
     // Infrastructure — use InMemory for Testing environment, SQL Server otherwise

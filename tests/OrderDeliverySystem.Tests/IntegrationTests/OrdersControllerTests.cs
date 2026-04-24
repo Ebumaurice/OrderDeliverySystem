@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using OrderDeliverySystem.Application.DTOs.Orders;
+using OrderDeliverySystem.Domain.Entities;
 using System.Net;
 using System.Net.Http.Json;
 
@@ -126,4 +127,5 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+    
 }

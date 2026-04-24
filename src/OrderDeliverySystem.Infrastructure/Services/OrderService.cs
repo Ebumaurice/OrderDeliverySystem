@@ -156,11 +156,12 @@ public class OrderService : IOrderService
         return MapToResponse(order);
     }
 
+    // ─── Only change here — removed Assigned from Created's allowed transitions ───
     private static void ValidateStatusTransition(OrderStatus current, OrderStatus next)
     {
         var allowed = new Dictionary<OrderStatus, IEnumerable<OrderStatus>>
         {
-            [OrderStatus.Created] = new[] { OrderStatus.Assigned, OrderStatus.Cancelled },
+            [OrderStatus.Created] = new[] { OrderStatus.Cancelled },
             [OrderStatus.Assigned] = new[] { OrderStatus.InTransit, OrderStatus.Cancelled },
             [OrderStatus.InTransit] = new[] { OrderStatus.Delivered },
             [OrderStatus.Delivered] = Array.Empty<OrderStatus>(),
@@ -168,10 +169,9 @@ public class OrderService : IOrderService
         };
 
         if (!allowed[current].Contains(next))
-        {
             throw new InvalidOperationException(
-                $"Invalid status transition from '{current}' to '{next}'.");
-        }
+                $"Invalid status transition from '{current}' to '{next}'. " +
+                $"To assign an order use the assign endpoint.");
     }
 
     private static OrderResponse MapToResponse(Order order) => new()

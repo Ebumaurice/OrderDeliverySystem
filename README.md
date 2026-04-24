@@ -90,6 +90,17 @@ Three delivery agents are seeded automatically on first run:
 
 ## Project Structure
 
+```
+OrderDeliverySystem/
+├── src/
+│   ├── OrderDeliverySystem.Domain          # Entities and enums
+│   ├── OrderDeliverySystem.Application     # Interfaces, services, DTOs
+│   ├── OrderDeliverySystem.Infrastructure  # DbContext, EF Core, persistence
+│   └── OrderDeliverySystem.Api             # Controllers, middleware, auth
+└── tests/
+    └── OrderDeliverySystem.Tests           # Unit and integration tests
+```
+
 ---
 
 ## API Overview
@@ -114,9 +125,21 @@ Three delivery agents are seeded automatically on first run:
 
 ### Filtering & Pagination
 
+```
+GET /api/orders?status=Assigned&page=1&pageSize=10
+```
+
 Valid status values: `Created`, `Assigned`, `InTransit`, `Delivered`, `Cancelled`
 
 ### Order Status Transitions
+
+```
+Created → Cancelled
+Assigned → InTransit → Delivered
+Assigned → Cancelled
+```
+
+To move an order to Assigned status, use the assign endpoint — not the status update endpoint.
 
 Invalid transitions return `400 Bad Request` with a descriptive error message.
 
@@ -127,6 +150,10 @@ Invalid transitions return `400 Bad Request` with a descriptive error message.
 All write endpoints (POST/PATCH) are protected with API Key authentication.
 
 Pass the key in every write request header:
+
+```
+X-Api-Key: your-api-key-here
+```
 
 When testing via Swagger UI, click the **Authorize** button at the top right and enter your API key. All subsequent requests from Swagger will include the header automatically.
 
@@ -139,6 +166,11 @@ When testing via Swagger UI, click the **Authorize** button at the top right and
 ### Clean Architecture Layering
 
 The solution is split into four layers with a strict one-way dependency flow:
+
+```
+Api → Application → Domain
+Api → Infrastructure → Domain
+```
 
 - **Domain** — entities and enums only, no dependencies
 - **Application** — business logic, service interfaces, DTOs
@@ -199,12 +231,17 @@ dotnet test
 
 ### Test Summary
 
+```
+Total: 22 | Passed: 22 | Failed: 0
+```
+
 ### Unit Tests — `UnitTests/OrderServiceTests.cs`
 
 Business logic tested directly against the service layer using an in-memory database:
 
-- Valid status transitions succeed (`Created → Assigned`, `Assigned → InTransit` etc.)
+- Valid status transitions succeed (`Assigned → InTransit`, `InTransit → Delivered` etc.)
 - Invalid status transitions throw `InvalidOperationException`
+- Setting status to Assigned directly via status update is blocked — must use the assign endpoint
 - Assigning an agent with an existing active order is blocked
 - Assigning an inactive agent is blocked
 - Assigning an agent to a Delivered order is blocked
